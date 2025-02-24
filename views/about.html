@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>О нас - ZeroBook</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <h1>ZeroBook</h1>
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/catalog">Каталог</a></li>
+                <li><a href="/about">О нас</a></li>
+                <li><a href="/contact">Контакты</a></li>
+                <li><a href="/profile" id="profile-link">Профиль</a></li>
+                <li class="cart-icon">
+                    <div class="cart-wrapper">
+                        <a href="/profile#cart">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count">0</span>
+                        </a>
+                        <div class="cart-preview">
+                            <div class="cart-preview-items">
+                                <!-- Здесь будут элементы корзины -->
+                            </div>
+                            <div class="cart-preview-total">
+                                <p>Итого: <span class="preview-total-price">0</span> ₸</p>
+                                <a href="/profile#cart" class="view-cart-btn">Перейти в корзину</a>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="about-hero">
+            <div class="about-hero-content">
+                <h2>О нас</h2>
+                <p>Ваш надежный партнер в мире книг с 2025 года</p>
+            </div>
+        </section>
+
+        <div class="about-container">
+            <section class="about-section">
+                <div class="about-card">
+                    <div class="about-icon">📚</div>
+                    <h3>Наша миссия</h3>
+                    <p>Делать чтение доступным и увлекательным для каждого. Мы верим, что книги способны изменить жизнь и открыть новые горизонты.</p>
+                </div>
+
+                <div class="about-card">
+                    <div class="about-icon">🎯</div>
+                    <h3>Наши цели</h3>
+                    <p>Предоставлять широкий выбор качественной литературы, создавать комфортную среду для чтения и развивать культуру чтения в обществе.</p>
+                </div>
+
+                <div class="about-card">
+                    <div class="about-icon">💫</div>
+                    <h3>Наши ценности</h3>
+                    <p>Качество, доступность, инновации и забота о каждом читателе - вот что движет нами каждый день.</p>
+                </div>
+            </section>
+
+            <section class="features-section">
+                <h3>Почему выбирают нас</h3>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon">📖</div>
+                        <h4>Большой выбор</h4>
+                        <p>Более 10,000 книг в различных жанрах</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🚚</div>
+                        <h4>Быстрая доставка</h4>
+                        <p>Доставка по всему Казахстану</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">💰</div>
+                        <h4>Лучшие цены</h4>
+                        <p>Регулярные акции и скидки</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎁</div>
+                        <h4>Бонусная программа</h4>
+                        <p>Накапливайте баллы с каждой покупки</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="team-section">
+                <h3>Наша команда</h3>
+                <p class="team-description">
+                    Мы - команда энтузиастов, объединенных любовью к книгам и стремлением делиться этой любовью с другими. 
+                    Каждый член нашей команды является экспертом в своей области и готов помочь вам с выбором книги.
+                </p>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 ZeroBook. Все права защищены.</p>
+    </footer>
+
+    <script>
+        async function updateCartPreview() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const response = await fetch('/api/profile/cart', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const cartItems = await response.json();
+                
+                // Обновляем количество товаров
+                const cartCount = document.querySelector('.cart-count');
+                cartCount.textContent = cartItems.length;
+
+                // Обновляем превью корзины
+                const cartPreviewItems = document.querySelector('.cart-preview-items');
+                if (cartItems.length === 0) {
+                    cartPreviewItems.innerHTML = '<p class="empty-cart">Корзина пуста</p>';
+                } else {
+                    cartPreviewItems.innerHTML = cartItems.map(item => `
+                        <div class="preview-item">
+                            <img src="${item.book.imageUrl}" alt="${item.book.title}">
+                            <div class="preview-item-info">
+                                <h4>${item.book.title}</h4>
+                                <p>${item.quantity} x ${item.book.price} ₸</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Обновляем общую сумму
+                const totalPrice = cartItems.reduce((sum, item) => sum + (item.book.price * item.quantity), 0);
+                document.querySelector('.preview-total-price').textContent = totalPrice;
+            } catch (error) {
+                console.error('Error updating cart:', error);
+            }
+        }
+
+        // Обновляем корзину при загрузке страницы
+        updateCartPreview();
+
+        // Обновляем корзину каждые 30 секунд
+        setInterval(updateCartPreview, 30000);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroBook - Онлайн книжный магазин</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <h1>ZeroBook</h1>
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/catalog">Каталог</a></li>
+                <li><a href="/about">О нас</a></li>
+                <li><a href="/contact">Контакты</a></li>
+                <li><a href="/profile" id="profile-link">Профиль</a></li>
+                <li class="cart-icon">
+                    <div class="cart-wrapper">
+                        <a href="/profile#cart">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count">0</span>
+                        </a>
+                        <div class="cart-preview">
+                            <div class="cart-preview-items">
+                                <!-- Здесь будут элементы корзины -->
+                            </div>
+                            <div class="cart-preview-total">
+                                <p>Итого: <span class="preview-total-price">0</span> ₸</p>
+                                <a href="/profile#cart" class="view-cart-btn">Перейти в корзину</a>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <h2>Добро пожаловать в ZeroBook</h2>
+                <p>Ваш источник лучших книг</p>
+            </div>
+        </section>
+
+        <div class="container">
+            <section class="featured-books">
+                <h3>Рекомендуемые книги</h3>
+                <div class="books-grid" id="recommended-books"></div>
+            </section>
+
+            <section class="top-books">
+                <div class="top-section">
+                    <h3>Топ книг за последнюю неделю</h3>
+                    <div class="books-grid" id="weekly-top"></div>
+                </div>
+
+                <div class="top-section">
+                    <h3>Топ книг за последний месяц</h3>
+                    <div class="books-grid" id="monthly-top"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 ZeroBook. Все права защищены.</p>
+    </footer>
+
+    <!-- Сначала добавим модальное окно (такое же, как в каталоге) -->
+    <div id="bookModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <div class="book-details">
+                <img id="modal-book-image" src="" alt="">
+                <div class="book-info">
+                    <h3 id="modal-book-title"></h3>
+                    <p id="modal-book-author"></p>
+                    <p id="modal-book-description"></p>
+                    <p id="modal-book-price"></p>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="add-to-read">Добавить в прочитанные</button>
+                <button class="add-to-cart">Добавить в корзину</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('bookModal');
+        const closeButton = document.querySelector('.close-button');
+        let currentBookId = null;
+
+        async function loadBooks() {
+            try {
+                console.log('Loading books...');
+                const response = await fetch('/api/books');
+                const books = await response.json();
+                console.log('Loaded books:', books);
+                
+                const shuffledBooks = [...books].sort(() => Math.random() - 0.5);
+                
+                const recommendedBooks = shuffledBooks.slice(0, 5);
+                const weeklyTopBooks = shuffledBooks.slice(5, 10);
+                const monthlyTopBooks = shuffledBooks.slice(10, 15);
+
+                function displayBooks(books, containerId) {
+                    const container = document.getElementById(containerId);
+                    if (!container) {
+                        console.error(`Container ${containerId} not found`);
+                        return;
+                    }
+                    container.innerHTML = books.map(book => `
+                        <div class="book-card">
+                            <div class="book-image">
+                                <img src="${book.imageUrl}" alt="${book.title}">
+                            </div>
+                            <div class="book-info">
+                                <div class="details">
+                                    <h4>${book.title}</h4>
+                                    <p class="author">Автор: ${book.author}</p>
+                                    <p class="price">${book.price} ₸</p>
+                                </div>
+                                <button onclick="showBookDetails('${book._id}')">Подробнее</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                displayBooks(recommendedBooks, 'recommended-books');
+                displayBooks(weeklyTopBooks, 'weekly-top');
+                displayBooks(monthlyTopBooks, 'monthly-top');
+
+            } catch (error) {
+                console.error('Error loading books:', error);
+            }
+        }
+
+        async function showBookDetails(bookId) {
+            const response = await fetch(`/api/books/${bookId}`);
+            const book = await response.json();
+            
+            currentBookId = bookId;
+            document.getElementById('modal-book-image').src = book.imageUrl;
+            document.getElementById('modal-book-title').textContent = book.title;
+            document.getElementById('modal-book-author').textContent = `Автор: ${book.author}`;
+            document.getElementById('modal-book-description').textContent = book.description;
+            document.getElementById('modal-book-price').textContent = `Цена: ${book.price} ₸`;
+            
+            modal.style.display = 'block';
+        }
+
+        // Закрытие модального окна
+        closeButton.onclick = () => modal.style.display = 'none';
+        window.onclick = (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Добавление в прочитанные
+        document.querySelector('.add-to-read').addEventListener('click', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Пожалуйста, войдите в систему');
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/profile/read-books', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ bookId: currentBookId })
+            });
+
+            if (response.ok) {
+                alert('Книга добавлена в прочитанные!');
+            } else {
+                alert('Произошла ошибка');
+            }
+        });
+
+        // Добавление в корзину
+        document.querySelector('.add-to-cart').addEventListener('click', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Пожалуйста, войдите в систему');
+                window.location.href = '/login';
+                return;
+            }
+
+            const response = await fetch('/api/profile/cart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ bookId: currentBookId })
+            });
+
+            if (response.ok) {
+                alert('Книга добавлена в корзину!');
+            } else {
+                alert('Произошла ошибка');
+            }
+        });
+
+        async function updateCartPreview() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const response = await fetch('/api/profile/cart', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const cartItems = await response.json();
+                
+                // Обновляем количество товаров
+                const cartCount = document.querySelector('.cart-count');
+                cartCount.textContent = cartItems.length;
+
+                // Обновляем превью корзины
+                const cartPreviewItems = document.querySelector('.cart-preview-items');
+                if (cartItems.length === 0) {
+                    cartPreviewItems.innerHTML = '<p class="empty-cart">Корзина пуста</p>';
+                } else {
+                    cartPreviewItems.innerHTML = cartItems.map(item => `
+                        <div class="preview-item">
+                            <img src="${item.book.imageUrl}" alt="${item.book.title}">
+                            <div class="preview-item-info">
+                                <h4>${item.book.title}</h4>
+                                <p>${item.quantity} x ${item.book.price} ₸</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Обновляем общую сумму
+                const totalPrice = cartItems.reduce((sum, item) => sum + (item.book.price * item.quantity), 0);
+                document.querySelector('.preview-total-price').textContent = totalPrice;
+
+            } catch (error) {
+                console.error('Error updating cart:', error);
+            }
+        }
+
+        // Обновляем корзину при загрузке страницы
+        updateCartPreview();
+
+        // Обновляем корзину после добавления товара
+        document.querySelector('.add-to-cart')?.addEventListener('click', () => {
+            setTimeout(updateCartPreview, 500); // Небольшая задержка для завершения добавления
+        });
+
+        loadBooks();
+    </script>
+</body>
+</html>

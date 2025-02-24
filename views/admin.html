@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - ZeroBook</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <h1>ZeroBook</h1>
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/catalog">Каталог</a></li>
+                <li><a href="/about">О нас</a></li>
+                <li><a href="/contact">Контакты</a></li>
+                <li><a href="/profile" id="profile-link">Профиль</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="admin-panel">
+            <h2>Панель администратора</h2>
+            
+            <div class="admin-sections">
+                <!-- Секция управления товарами -->
+                <section class="admin-books">
+                    <h3>Управление товарами</h3>
+                    <div class="books-list">
+                        <!-- Список книг будет загружен через JavaScript -->
+                    </div>
+                </section>
+
+                <!-- Секция управления пользователями -->
+                <section class="admin-users">
+                    <h3>Управление пользователями</h3>
+                    <div class="users-list">
+                        <!-- Список пользователей будет загружен через JavaScript -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно для редактирования книги -->
+    <div id="editBookModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3>Редактировать книгу</h3>
+            <form id="edit-book-form">
+                <input type="hidden" id="edit-book-id">
+                <div class="form-group">
+                    <label for="edit-title">Название:</label>
+                    <input type="text" id="edit-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-author">Автор:</label>
+                    <input type="text" id="edit-author" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-price">Цена:</label>
+                    <input type="number" id="edit-price" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-description">Описание:</label>
+                    <textarea id="edit-description"></textarea>
+                </div>
+                <button type="submit">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования пользователя -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3>Редактировать пользователя</h3>
+            <form id="edit-user-form">
+                <input type="hidden" id="edit-user-id">
+                <div class="form-group">
+                    <label for="edit-user-email">Email:</label>
+                    <input type="email" id="edit-user-email" required>
+                </div>
+                <button type="submit">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // Проверяем, является ли пользователь админом
+        async function checkAdmin() {
+            const response = await fetch('/api/profile', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const user = await response.json();
+            if (user.role !== 'admin') {
+                window.location.href = '/profile';
+            }
+        }
+
+        // Загрузка книг
+        async function loadBooks() {
+            const response = await fetch('/api/books');
+            const books = await response.json();
+            
+            const booksList = document.querySelector('.books-list');
+            booksList.innerHTML = books.map(book => `
+                <div class="admin-item">
+                    <img src="${book.imageUrl}" alt="${book.title}">
+                    <div class="item-info">
+                        <h4>${book.title}</h4>
+                        <p>Автор: ${book.author}</p>
+                        <p>Цена: ${book.price} ₸</p>
+                    </div>
+                    <div class="admin-actions">
+                        <button onclick="editBook('${book._id}')" class="edit-btn">
+                            <i class="fas fa-edit"></i> Изменить
+                        </button>
+                        <button onclick="deleteBook('${book._id}')" class="delete-btn">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Загрузка пользователей
+        async function loadUsers() {
+            const response = await fetch('/api/admin/users', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const users = await response.json();
+            
+            const usersList = document.querySelector('.users-list');
+            usersList.innerHTML = users.map(user => `
+                <div class="admin-item">
+                    <div class="item-info">
+                        <h4>${user.username}</h4>
+                        <p>Email: ${user.email}</p>
+                        <p>Роль: ${user.role}</p>
+                    </div>
+                    <div class="admin-actions">
+                        ${user.role !== 'admin' ? `
+                            <button onclick="editUser('${user._id}')" class="edit-btn">
+                                <i class="fas fa-edit"></i> Изменить email
+                            </button>
+                            <button onclick="deleteUser('${user._id}')" class="delete-btn">
+                                <i class="fas fa-trash"></i> Удалить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Функции для работы с модальными окнами и редактированием
+        const editBookModal = document.getElementById('editBookModal');
+        const editUserModal = document.getElementById('editUserModal');
+
+        async function editBook(bookId) {
+            const response = await fetch(`/api/books/${bookId}`);
+            const book = await response.json();
+            
+            document.getElementById('edit-book-id').value = book._id;
+            document.getElementById('edit-title').value = book.title;
+            document.getElementById('edit-author').value = book.author;
+            document.getElementById('edit-price').value = book.price;
+            document.getElementById('edit-description').value = book.description;
+            
+            editBookModal.style.display = 'block';
+        }
+
+        async function editUser(userId) {
+            const response = await fetch(`/api/admin/users/${userId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const user = await response.json();
+            
+            document.getElementById('edit-user-id').value = user._id;
+            document.getElementById('edit-user-email').value = user.email;
+            
+            editUserModal.style.display = 'block';
+        }
+
+        // Обработчики форм
+        document.getElementById('edit-book-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bookId = document.getElementById('edit-book-id').value;
+            const bookData = {
+                title: document.getElementById('edit-title').value,
+                author: document.getElementById('edit-author').value,
+                price: document.getElementById('edit-price').value,
+                description: document.getElementById('edit-description').value
+            };
+
+            const response = await fetch(`/api/admin/books/${bookId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(bookData)
+            });
+
+            if (response.ok) {
+                editBookModal.style.display = 'none';
+                loadBooks();
+            }
+        });
+
+        document.getElementById('edit-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById('edit-user-id').value;
+            const email = document.getElementById('edit-user-email').value;
+
+            const response = await fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ email })
+            });
+
+            if (response.ok) {
+                editUserModal.style.display = 'none';
+                loadUsers();
+            }
+        });
+
+        async function deleteBook(bookId) {
+            if (confirm('Вы уверены, что хотите удалить эту книгу?')) {
+                const response = await fetch(`/api/admin/books/${bookId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    loadBooks();
+                }
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
+                const response = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    loadUsers();
+                }
+            }
+        }
+
+        // Закрытие модальных окон
+        document.querySelectorAll('.close-button').forEach(button => {
+            button.onclick = function() {
+                editBookModal.style.display = 'none';
+                editUserModal.style.display = 'none';
+            }
+        });
+
+        window.onclick = function(event) {
+            if (event.target === editBookModal) {
+                editBookModal.style.display = 'none';
+            }
+            if (event.target === editUserModal) {
+                editUserModal.style.display = 'none';
+            }
+        }
+
+        // Инициализация
+        checkAdmin();
+        loadBooks();
+        loadUsers();
+    </script>
+</body>
+</html> 

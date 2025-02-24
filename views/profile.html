@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль - ZeroBook</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <h1>ZeroBook</h1>
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/catalog">Каталог</a></li>
+                <li><a href="/about">О нас</a></li>
+                <li><a href="/contact">Контакты</a></li>
+                <li><a href="/profile" id="profile-link">Профиль</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="profile">
+            <div class="profile-header">
+                <h2>Добро пожаловать, <span id="welcome-username"></span>!</h2>
+            </div>
+            
+            <div class="profile-sections">
+                <div class="profile-info">
+                    <h3>Ваш профиль</h3>
+                    <div id="admin-panel-link" style="display: none;" class="admin-panel-link">
+                        <a href="/admin" class="admin-link">
+                            <i class="fas fa-cogs"></i>
+                            Панель администратора
+                        </a>
+                    </div>
+                    <form id="profile-form">
+                        <div class="profile-role">
+                            <label>Статус:</label>
+                            <span id="user-role" class="role-badge"></span>
+                        </div>
+                        <div>
+                            <label for="username">Логин:</label>
+                            <input type="text" id="username" name="username" disabled>
+                        </div>
+                        <div>
+                            <label for="email">Email:</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        <div>
+                            <label for="password">Новый пароль:</label>
+                            <input type="password" id="password" name="password">
+                        </div>
+                        <button type="submit">Сохранить изменения</button>
+                    </form>
+                    
+                    <div class="profile-actions">
+                        <button id="logout">Выйти</button>
+                        <button id="delete-account">Удалить аккаунт</button>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    <div class="read-books-section">
+                        <h3>Прочитанные книги</h3>
+                        <div class="read-books-list">
+                            <!-- Здесь будут прочитанные книги -->
+                        </div>
+                    </div>
+
+                    <div class="cart-section">
+                        <h3>Корзина</h3>
+                        <div class="cart-list">
+                            <!-- Здесь будут книги в корзине -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 ZeroBook. Все права защищены.</p>
+    </footer>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // Загрузить данные профиля
+        async function loadProfile() {
+            const response = await fetch('/api/profile', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const user = await response.json();
+            if (response.ok) {
+                document.getElementById('username').value = user.username;
+                document.getElementById('email').value = user.email;
+                document.getElementById('welcome-username').textContent = user.username;
+                const roleElement = document.getElementById('user-role');
+                roleElement.textContent = user.role === 'admin' ? 'Администратор' : 'Пользователь';
+                roleElement.className = `role-badge ${user.role}`;
+                if (user.role === 'admin') {
+                    document.getElementById('admin-panel-link').style.display = 'block';
+                }
+            } else {
+                window.location.href = '/login';
+            }
+
+            // Загрузка прочитанных книг
+            const readBooksResponse = await fetch('/api/profile/read-books', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const readBooks = await readBooksResponse.json();
+            
+            const readBooksList = document.querySelector('.read-books-list');
+            readBooksList.innerHTML = readBooks.map(book => `
+                <div class="book-card">
+                    <div class="book-image">
+                        <img src="${book.imageUrl}" alt="${book.title}">
+                    </div>
+                    <div class="book-info">
+                        <div class="details">
+                            <h4>${book.title}</h4>
+                            <p class="author">Автор: ${book.author}</p>
+                        </div>
+                        <button onclick="removeFromReadBooks('${book._id}')" class="remove-book">Удалить из прочитанных</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Загрузка корзины
+            const cartResponse = await fetch('/api/profile/cart', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const cartItems = await cartResponse.json();
+            
+            const cartList = document.querySelector('.cart-list');
+            cartList.innerHTML = cartItems.map(item => `
+                <div class="cart-item">
+                    <img src="${item.book.imageUrl}" alt="${item.book.title}">
+                    <div class="cart-item-info">
+                        <h4>${item.book.title}</h4>
+                        <p>Автор: ${item.book.author}</p>
+                        <p>Количество: ${item.quantity}</p>
+                        <p class="price">Цена: ${item.book.price * item.quantity} ₸</p>
+                    </div>
+                    <button onclick="removeFromCart('${item.book._id}')">Удалить</button>
+                </div>
+            `).join('');
+
+            // Подсчет общей стоимости и добавление кнопки оформления заказа
+            const totalPrice = cartItems.reduce((total, item) => 
+                total + (item.book.price * item.quantity), 0);
+
+            // Создаем и добавляем div с итогом и кнопкой
+            const cartTotal = document.createElement('div');
+            cartTotal.className = 'cart-total';
+            cartTotal.innerHTML = `
+                <p>Итого: ${totalPrice} ₸</p>
+                <button id="checkout-button" class="checkout-button">Оформить заказ</button>
+            `;
+            cartList.parentNode.appendChild(cartTotal);
+
+            // Добавляем обработчик для кнопки оформления заказа
+            document.getElementById('checkout-button').addEventListener('click', () => {
+                if (cartItems.length > 0) {
+                    const token = localStorage.getItem('token');
+                    window.location.href = `/checkout?token=${token}`;
+                } else {
+                    alert('Ваша корзина пуста');
+                }
+            });
+        }
+
+        // Обновить профиль
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const response = await fetch('/api/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ email, password })
+            });
+            if (response.ok) {
+                alert('Данные успешно обновлены!');
+            } else {
+                alert('Ошибка при обновлении данных.');
+            }
+        });
+
+        // Удалить аккаунт
+        document.getElementById('delete-account').addEventListener('click', async () => {
+            if (confirm('Вы уверены, что хотите удалить аккаунт?')) {
+                const response = await fetch('/api/profile', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                } else {
+                    alert('Ошибка при удалении аккаунта.');
+                }
+            }
+        });
+
+        // Выйти из аккаунта
+        document.getElementById('logout').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        });
+
+        async function removeFromCart(bookId) {
+            const response = await fetch(`/api/profile/cart/${bookId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                loadProfile();
+            }
+        }
+
+        // Добавим функцию удаления из прочитанных
+        async function removeFromReadBooks(bookId) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/profile/read-books/${bookId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    loadProfile(); // Перезагрузим профиль для обновления списка
+                    alert('Книга удалена из прочитанных');
+                } else {
+                    alert('Произошла ошибка при удалении книги');
+                }
+            } catch (error) {
+                console.error('Error removing book:', error);
+                alert('Произошла ошибка');
+            }
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html> 

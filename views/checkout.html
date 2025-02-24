@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оформление заказа - ZeroBook</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <h1>ZeroBook</h1>
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/catalog">Каталог</a></li>
+                <li><a href="/about">О нас</a></li>
+                <li><a href="/contact">Контакты</a></li>
+                <li><a href="/profile" id="profile-link">Профиль</a></li>
+                <li class="cart-icon">
+                    <div class="cart-wrapper">
+                        <a href="/profile#cart">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count">0</span>
+                        </a>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="checkout-container">
+            <h2>Оформление заказа</h2>
+            
+            <div class="checkout-content">
+                <div class="order-details">
+                    <h3>Ваш заказ</h3>
+                    <div class="order-items">
+                        <!-- Здесь будут элементы заказа -->
+                    </div>
+                    <div class="order-total">
+                        <p>Итого: <span id="order-total-price">0</span> ₸</p>
+                    </div>
+                </div>
+
+                <form id="checkout-form" class="checkout-form">
+                    <div class="form-section">
+                        <h3>Личные данные</h3>
+                        <div class="form-group">
+                            <label for="fullname">ФИО*</label>
+                            <input type="text" id="fullname" name="fullname" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email*</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">Телефон*</label>
+                            <input type="tel" id="phone" name="phone" required>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Адрес доставки</h3>
+                        <div class="form-group">
+                            <label for="city">Город*</label>
+                            <input type="text" id="city" name="city" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="address">Адрес*</label>
+                            <textarea id="address" name="address" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="postal">Почтовый индекс</label>
+                            <input type="text" id="postal" name="postal">
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Способ оплаты</h3>
+                        <div class="payment-methods">
+                            <div class="payment-method">
+                                <input type="radio" id="card" name="payment" value="card" checked>
+                                <label for="card">
+                                    <i class="fas fa-credit-card"></i>
+                                    Банковской картой
+                                </label>
+                            </div>
+                            <div class="payment-method">
+                                <input type="radio" id="cash" name="payment" value="cash">
+                                <label for="cash">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                    Наличными при получении
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-order">Подтвердить заказ</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 ZeroBook. Все права защищены.</p>
+    </footer>
+
+    <script>
+        // Получаем токен из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        async function loadOrderDetails() {
+            try {
+                const response = await fetch('/api/profile/cart', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const cartItems = await response.json();
+
+                const orderItems = document.querySelector('.order-items');
+                orderItems.innerHTML = cartItems.map(item => `
+                    <div class="order-item">
+                        <img src="${item.book.imageUrl}" alt="${item.book.title}">
+                        <div class="order-item-info">
+                            <h4>${item.book.title}</h4>
+                            <p>Количество: ${item.quantity}</p>
+                            <p class="price">${item.book.price * item.quantity} ₸</p>
+                        </div>
+                    </div>
+                `).join('');
+
+                const totalPrice = cartItems.reduce((sum, item) => sum + (item.book.price * item.quantity), 0);
+                document.getElementById('order-total-price').textContent = totalPrice;
+            } catch (error) {
+                console.error('Error loading order details:', error);
+                alert('Произошла ошибка при загрузке данных заказа');
+            }
+        }
+
+        document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                fullname: document.getElementById('fullname').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                city: document.getElementById('city').value,
+                address: document.getElementById('address').value,
+                postal: document.getElementById('postal').value,
+                paymentMethod: document.querySelector('input[name="payment"]:checked').value
+            };
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    alert('Заказ успешно оформлен!');
+                    window.location.href = '/profile';
+                } else {
+                    const error = await response.json();
+                    alert(error.message || 'Произошла ошибка при оформлении заказа');
+                }
+            } catch (error) {
+                console.error('Error creating order:', error);
+                alert('Произошла ошибка при оформлении заказа');
+            }
+        });
+
+        // Загружаем детали заказа при загрузке страницы
+        loadOrderDetails();
+    </script>
+</body>
+</html> 
