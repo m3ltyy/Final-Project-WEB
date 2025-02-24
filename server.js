@@ -12,7 +12,6 @@ const cookieParser = require('cookie-parser');
 const Book = require('./models/Book');
 const User = require('./models/User');
 
-// Middleware для API запросов
 const authMiddleware = (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) {
@@ -27,9 +26,8 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
-// Middleware для проверки авторизации на страницах
 const pageAuthMiddleware = (req, res, next) => {
-    // Проверяем токен в разных местах
+   
     let token = null;
     
     const authHeader = req.header('Authorization');
@@ -59,7 +57,7 @@ const pageAuthMiddleware = (req, res, next) => {
     }
 };
 
-// Middleware для проверки прав администратора
+
 const adminMiddleware = async (req, res, next) => {
     try {
         const user = await User.findById(req.userId);
@@ -100,32 +98,32 @@ app.get('/contact', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'contact.html'));
 });
 
-// Маршрут для страницы входа
+
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'login.html'));
 });
 
-// Маршрут для страницы профиля
+
 app.get('/profile', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'profile.html'));
 });
 
-// Маршрут для страницы регистрации
+
 app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'register.html'));
 });
 
-// Обновляем маршрут для страницы оформления заказа
+
 app.get('/checkout', pageAuthMiddleware, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'checkout.html'));
 });
 
-// Маршрут для админ-панели
+
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
-// API Routes
+
 app.get('/api/books', async (req, res) => {
     try {
         const books = await Book.find();
@@ -135,7 +133,7 @@ app.get('/api/books', async (req, res) => {
     }
 });
 
-// Получить данные профиля
+
 app.get('/api/profile', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -152,7 +150,7 @@ app.get('/api/profile', authMiddleware, async (req, res) => {
     }
 });
 
-// Обновить данные профиля
+
 app.put('/api/profile', authMiddleware, async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -166,7 +164,7 @@ app.put('/api/profile', authMiddleware, async (req, res) => {
     }
 });
 
-// Удалить аккаунт
+
 app.delete('/api/profile', authMiddleware, async (req, res) => {
     try {
         await User.findByIdAndDelete(req.userId);
@@ -180,7 +178,7 @@ app.post('/api/register', async (req, res) => {
     try {
         const { username, email, password } = req.body;
         
-        // Проверяем, существует ли пользователь
+        
         const existingUser = await User.findOne({ 
             $or: [{ username }, { email }] 
         });
@@ -191,12 +189,12 @@ app.post('/api/register', async (req, res) => {
             });
         }
 
-        // Создаем нового пользователя (всегда с ролью 'user')
+        
         const user = new User({
             username,
             email,
             password,
-            role: 'user' // Явно указываем роль
+            role: 'user' 
         });
 
         await user.save();
@@ -206,32 +204,32 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Маршрут для входа
+
 app.post('/api/login', async (req, res) => {
-    console.log('Login request received:', req.body); // Логирование запроса
+    console.log('Login request received:', req.body); 
     try {
         const { username, password } = req.body;
         const user = await User.findOne({ username });
         if (!user) {
-            console.log('User not found:', username); // Логирование ошибки
+            console.log('User not found:', username); 
             return res.status(400).json({ message: 'Пользователь не найден' });
         }
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
-            console.log('Invalid password for user:', username); // Логирование ошибки
+            console.log('Invalid password for user:', username); 
             return res.status(400).json({ message: 'Неверный пароль' });
         }
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        console.log('Login successful for user:', username); // Логирование успеха
+        console.log('Login successful for user:', username); 
         res.cookie('token', token, { httpOnly: true });
         res.json({ token });
     } catch (err) {
-        console.error('Login error:', err); // Логирование ошибки
+        console.error('Login error:', err); 
         res.status(400).json({ message: err.message });
     }
 });
 
-// Получить информацию о конкретной книге
+
 app.get('/api/books/:id', async (req, res) => {
     try {
         const book = await Book.findById(req.params.id);
@@ -244,7 +242,7 @@ app.get('/api/books/:id', async (req, res) => {
     }
 });
 
-// Добавить книгу в прочитанные
+
 app.post('/api/profile/read-books', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -261,7 +259,7 @@ app.post('/api/profile/read-books', authMiddleware, async (req, res) => {
     }
 });
 
-// Добавить книгу в корзину
+
 app.post('/api/profile/cart', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -281,7 +279,7 @@ app.post('/api/profile/cart', authMiddleware, async (req, res) => {
     }
 });
 
-// Получить содержимое корзины
+
 app.get('/api/profile/cart', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId).populate('cart.book');
@@ -291,7 +289,7 @@ app.get('/api/profile/cart', authMiddleware, async (req, res) => {
     }
 });
 
-// Получить прочитанные книги
+
 app.get('/api/profile/read-books', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId).populate('readBooks');
@@ -301,7 +299,7 @@ app.get('/api/profile/read-books', authMiddleware, async (req, res) => {
     }
 });
 
-// Удалить книгу из корзины
+
 app.delete('/api/profile/cart/:bookId', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -313,7 +311,7 @@ app.delete('/api/profile/cart/:bookId', authMiddleware, async (req, res) => {
     }
 });
 
-// Удалить книгу из прочитанных
+
 app.delete('/api/profile/read-books/:bookId', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
@@ -325,16 +323,16 @@ app.delete('/api/profile/read-books/:bookId', authMiddleware, async (req, res) =
     }
 });
 
-// API маршрут для обработки заказов
+
 app.post('/api/orders', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.userId);
         const { fullname, email, phone, city, address, postal, paymentMethod } = req.body;
         
-        // Получаем текущую корзину пользователя
+        
         const cartItems = user.cart;
         
-        // Создаем новый заказ
+   
         const order = {
             userId: req.userId,
             items: cartItems,
@@ -352,7 +350,7 @@ app.post('/api/orders', authMiddleware, async (req, res) => {
             createdAt: new Date()
         };
 
-        // Очищаем корзину пользователя после оформления заказа
+        
         user.cart = [];
         await user.save();
 
@@ -362,7 +360,7 @@ app.post('/api/orders', authMiddleware, async (req, res) => {
     }
 });
 
-// API маршруты для админ-панели
+
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const users = await User.find({}, '-password');
@@ -426,7 +424,6 @@ app.delete('/api/admin/books/:id', authMiddleware, adminMiddleware, async (req, 
     }
 });
 
-// Start server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
